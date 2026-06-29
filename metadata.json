@@ -1,0 +1,6 @@
+{
+  "name": "PharmaGenie",
+  "description": "Clinical Pharmacogenomics Assistant - Explain patient response to drugs based on genetic variants.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

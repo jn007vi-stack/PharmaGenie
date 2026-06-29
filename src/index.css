@@ -1,0 +1,76 @@
+@import "tailwindcss";
+
+@media print {
+  /* Hide all interactive UI and non-report sections */
+  header,
+  footer,
+  #preset-cards-container,
+  #saved-reports-history-section,
+  #input-controls-panel,
+  #save-history-button,
+  #copy-result-button,
+  #download-result-button,
+  #print-result-button,
+  .no-print {
+    display: none !important;
+  }
+
+  /* Reset main layout and make report occupy full width */
+  body {
+    background-color: #ffffff !important;
+    color: #0f172a !important;
+    font-family: ui-sans-serif, system-ui, sans-serif !important;
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+
+  main {
+    padding: 0 !important;
+    margin: 0 !important;
+    max-width: 100% !important;
+    width: 100% !important;
+  }
+
+  /* Remove grid formatting to allow full-width blocks */
+  .grid {
+    display: block !important;
+  }
+
+  .lg\:col-span-7 {
+    width: 100% !important;
+  }
+
+  /* Remove boxes, shadows, and borders from the main panel */
+  #result-analysis-panel {
+    border: none !important;
+    box-shadow: none !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    background: transparent !important;
+  }
+
+  /* Expand interpretation text box to prevent cut-off and scrollbars */
+  .max-h-\[350px\] {
+    max-height: none !important;
+    overflow: visible !important;
+    background: transparent !important;
+    border: none !important;
+    padding: 0 !important;
+  }
+
+  /* Force print backgrounds where appropriate or make them simple borders */
+  .bg-slate-50 {
+    background-color: transparent !important;
+    padding: 0 !important;
+  }
+
+  .bg-teal-50\/50 {
+    background-color: #f0fdfa !important;
+    border: 1px solid #ccfbf1 !important;
+  }
+
+  .bg-amber-50\/70 {
+    background-color: #fffbeb !important;
+    border: 1px solid #fef3c7 !important;
+  }
+}

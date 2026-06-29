@@ -1,0 +1,7 @@
+{
+  "collections": {
+    "reports": {
+      "rules": "allow read, write, delete: if true;"
+    }
+  }
+}
