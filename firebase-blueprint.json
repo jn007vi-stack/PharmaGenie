@@ -1,7 +1,29 @@
 {
-  "collections": {
+  "entities": {
+    "Report": {
+      "title": "Report",
+      "description": "A saved PGx Clinical Report containing gene variant pharmacology analysis and therapeutic recommendations.",
+      "type": "object",
+      "properties": {
+        "gene": { "type": "string", "description": "The genetic variant targeted (e.g., CYP2D6)." },
+        "phenotype": { "type": "string", "description": "The patient's metabolizer phenotype (e.g., Poor Metabolizer)." },
+        "drug": { "type": "string", "description": "The target medication specified." },
+        "riskLevel": { "type": "string", "description": "Risk level associated (e.g., High Risk)." },
+        "guidelineStatus": { "type": "string", "description": "Guideline status details." },
+        "evidenceLevel": { "type": "string", "description": "Level of evidence (e.g., Level A)." },
+        "suggestedAlternative": { "type": "string", "description": "Recommended substitute pharmacotherapies." },
+        "explanation": { "type": "string", "description": "Full therapeutic interpretation and metabolism guidance." },
+        "sessionId": { "type": "string", "description": "The unique guest browser session ID to sync history securely." },
+        "ageGroup": { "type": "string", "description": "The age demographic classification (Pediatric, Adult, Geriatric)." },
+        "timestamp": { "type": "string", "format": "date-time", "description": "Chronological stamp when report was compiled." }
+      },
+      "required": ["gene", "phenotype", "drug", "riskLevel", "guidelineStatus", "evidenceLevel", "explanation", "sessionId"]
+    }
+  },
+  "firestore": {
     "reports": {
-      "rules": "allow read, write, delete: if true;"
+      "schema": "Report",
+      "description": "A collection of PGx assessment logs, synced via anonymous guest browser session IDs."
     }
   }
 }
