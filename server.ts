@@ -8,9 +8,21 @@ import { createServer as createViteServer } from 'vite';
 // Load environment variables
 dotenv.config();
 
-// Setup paths for ES modules
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+// Setup paths for ES modules or CommonJS
+const getModulePaths = () => {
+  const isESM = typeof import.meta !== 'undefined' && !!import.meta.url;
+  if (isESM) {
+    const filename = fileURLToPath(import.meta.url);
+    const dirname = path.dirname(filename);
+    return { filename, dirname };
+  }
+  return {
+    filename: typeof __filename !== 'undefined' ? __filename : '',
+    dirname: typeof __dirname !== 'undefined' ? __dirname : '',
+  };
+};
+
+const { filename: _filename, dirname: _dirname } = getModulePaths();
 
 // Import our local helper data
 // Note: In tsx/development, relative imports work cleanly
@@ -39,6 +51,41 @@ function getGeminiClient(): GoogleGenAI | null {
     }
   }
   return aiClient;
+}
+
+// Helper to construct and send local database clinical guideline fallback response
+function sendFallbackResponse(
+  res: express.Response,
+  gene: GeneType,
+  phenotype: PhenotypeType,
+  drug: string,
+  patientAgeGroup: string,
+  guideline: any,
+  source: string
+) {
+  let explanation = guideline.defaultSummary;
+  if (patientAgeGroup === 'Pediatric') {
+    explanation += `\n\n[Pediatric Note: Immature clearance/enzymes. Requires weight-based calibration and precision.]`;
+  } else if (patientAgeGroup === 'Geriatric') {
+    explanation += `\n\n[Geriatric Note: Reduced organ reserve and clearance rates. High risk of adverse events; start low and go slow.]`;
+  }
+  
+  const disclaimer = "This is not a substitute for medical advice. Please confirm with a doctor or pharmacist before changing any medication.";
+  if (!explanation.includes(disclaimer)) {
+    explanation = `${explanation}\n\n${disclaimer}`;
+  }
+
+  return res.json({
+    gene,
+    phenotype,
+    drug,
+    riskLevel: guideline.riskLevel,
+    guidelineStatus: guideline.guidelineStatus,
+    evidenceLevel: guideline.evidenceLevel,
+    suggestedAlternative: guideline.riskLevel === 'Low Risk' ? undefined : guideline.suggestedAlternative,
+    explanation: explanation,
+    source: source
+  });
 }
 
 // API endpoint for generating pharmacogenomic explanations
@@ -102,102 +149,100 @@ Return the response in JSON format.`;
     const client = getGeminiClient();
 
     if (client) {
-      // Generate explanation using Gemini 3.5 Flash
-      const response = await client.models.generateContent({
-        model: 'gemini-3.5-flash',
-        contents: prompt,
-        config: {
-          temperature: 0.1, // Keep it highly clinical and low-variance
-          responseMimeType: 'application/json',
-          responseSchema: {
-            type: 'OBJECT',
-            properties: {
-              explanation: { 
-                type: 'STRING', 
-                description: 'Under 150 words plain English clinical interpretation of variant metabolic impact, patient age group differences, practical consequences, and CPIC guideline action. Ends with medical disclaimer.' 
-              },
-              suggestedAlternative: { 
-                type: 'STRING', 
-                description: 'One short sentence suggesting what type of alternative medication or approach doctors typically consider if Caution or High Risk. Empty if Low Risk, or state insufficient data if No Established Guideline.' 
-              }
-            },
-            required: ['explanation', 'suggestedAlternative']
-          }
-        }
-      });
-
-      let explanationText = '';
-      let suggestedAlternativeText = guideline.suggestedAlternative || '';
-
       try {
-        if (response.text) {
-          const parsed = JSON.parse(response.text);
-          explanationText = parsed.explanation || '';
-          if (parsed.suggestedAlternative) {
-            suggestedAlternativeText = parsed.suggestedAlternative;
+        // Generate explanation using Gemini 3.5 Flash
+        const response = await client.models.generateContent({
+          model: 'gemini-3.5-flash',
+          contents: prompt,
+          config: {
+            temperature: 0.1, // Keep it highly clinical and low-variance
+            responseMimeType: 'application/json',
+            responseSchema: {
+              type: 'OBJECT',
+              properties: {
+                explanation: { 
+                  type: 'STRING', 
+                  description: 'Under 150 words plain English clinical interpretation of variant metabolic impact, patient age group differences, practical consequences, and CPIC guideline action. Ends with medical disclaimer.' 
+                },
+                suggestedAlternative: { 
+                  type: 'STRING', 
+                  description: 'One short sentence suggesting what type of alternative medication or approach doctors typically consider if Caution or High Risk. Empty if Low Risk, or state insufficient data if No Established Guideline.' 
+                }
+              },
+              required: ['explanation', 'suggestedAlternative']
+            }
           }
+        });
+
+        let explanationText = '';
+        let suggestedAlternativeText = guideline.suggestedAlternative || '';
+
+        try {
+          if (response.text) {
+            const parsed = JSON.parse(response.text);
+            explanationText = parsed.explanation || '';
+            if (parsed.suggestedAlternative) {
+              suggestedAlternativeText = parsed.suggestedAlternative;
+            }
+          }
+        } catch (parseErr) {
+          console.error('Error parsing structured JSON response from Gemini:', parseErr);
+          explanationText = response.text || guideline.defaultSummary;
         }
-      } catch (parseErr) {
-        console.error('Error parsing structured JSON response from Gemini:', parseErr);
-        explanationText = response.text || guideline.defaultSummary;
-      }
 
-      if (!explanationText) {
-        explanationText = guideline.defaultSummary;
-      }
-      
-      // Clean up final disclaimer to make sure it's present exactly once
-      let cleanText = explanationText.trim();
-      const disclaimer = "This is not a substitute for medical advice. Please confirm with a doctor or pharmacist before changing any medication.";
-      
-      // Ensure the text ends with the disclaimer
-      if (!cleanText.includes(disclaimer)) {
-        cleanText = `${cleanText}\n\n${disclaimer}`;
-      }
+        if (!explanationText) {
+          explanationText = guideline.defaultSummary;
+        }
+        
+        // Clean up final disclaimer to make sure it's present exactly once
+        let cleanText = explanationText.trim();
+        const disclaimer = "This is not a substitute for medical advice. Please confirm with a doctor or pharmacist before changing any medication.";
+        
+        // Ensure the text ends with the disclaimer
+        if (!cleanText.includes(disclaimer)) {
+          cleanText = `${cleanText}\n\n${disclaimer}`;
+        }
 
-      // If low risk, make sure suggestedAlternative is omitted/empty per rules
-      if (guideline.riskLevel === 'Low Risk') {
-        suggestedAlternativeText = '';
-      }
+        // If low risk, make sure suggestedAlternative is omitted/empty per rules
+        if (guideline.riskLevel === 'Low Risk') {
+          suggestedAlternativeText = '';
+        }
 
-      return res.json({
-        gene,
-        phenotype,
-        drug,
-        riskLevel: guideline.riskLevel,
-        guidelineStatus: guideline.guidelineStatus,
-        evidenceLevel: guideline.evidenceLevel,
-        suggestedAlternative: suggestedAlternativeText,
-        explanation: cleanText,
-        source: 'Gemini AI Model (gemini-3.5-flash)'
-      });
+        return res.json({
+          gene,
+          phenotype,
+          drug,
+          riskLevel: guideline.riskLevel,
+          guidelineStatus: guideline.guidelineStatus,
+          evidenceLevel: guideline.evidenceLevel,
+          suggestedAlternative: suggestedAlternativeText,
+          explanation: cleanText,
+          source: 'Gemini AI Model (gemini-3.5-flash)'
+        });
+      } catch (geminiError: any) {
+        console.warn('Gemini API call failed (e.g. 503 high-demand or bad credentials). Falling back to pre-cached local guideline database:', geminiError.message || geminiError);
+        return sendFallbackResponse(
+          res,
+          gene,
+          phenotype,
+          drug,
+          patientAgeGroup,
+          guideline,
+          'Pre-cached Clinical Guidelines Database (Gemini Offline Fallback)'
+        );
+      }
     } else {
       // API Key is not set or empty, fallback to rich offline clinical guideline summary
       console.log('Gemini API key not configured or empty. Using pre-cached medical guideline summaries.');
-      
-      let explanation = guideline.defaultSummary;
-      if (patientAgeGroup === 'Pediatric') {
-        explanation += `\n\n[Pediatric Note: Immature clearance/enzymes. Requires weight-based calibration and precision.]`;
-      } else if (patientAgeGroup === 'Geriatric') {
-        explanation += `\n\n[Geriatric Note: Reduced organ reserve and clearance rates. High risk of adverse events; start low and go slow.]`;
-      }
-      
-      const disclaimer = "This is not a substitute for medical advice. Please confirm with a doctor or pharmacist before changing any medication.";
-      if (!explanation.includes(disclaimer)) {
-        explanation = `${explanation}\n\n${disclaimer}`;
-      }
-
-      return res.json({
+      return sendFallbackResponse(
+        res,
         gene,
         phenotype,
         drug,
-        riskLevel: guideline.riskLevel,
-        guidelineStatus: guideline.guidelineStatus,
-        evidenceLevel: guideline.evidenceLevel,
-        suggestedAlternative: guideline.riskLevel === 'Low Risk' ? undefined : guideline.suggestedAlternative,
-        explanation: explanation,
-        source: 'Pre-cached Clinical Guidelines Database (Fallback Mode)'
-      });
+        patientAgeGroup,
+        guideline,
+        'Pre-cached Clinical Guidelines Database (Offline Mode)'
+      );
     }
   } catch (error: any) {
     console.error('Error generating explanation:', error);
