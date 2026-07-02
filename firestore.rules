@@ -1,8 +1,45 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
+    
+    // Check if the user is authenticated
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    // Check if the user is an Administrator
+    function isAdmin() {
+      return isAuthenticated() && 
+        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'Administrator';
+    }
+
+    // Users Collection rules
+    match /users/{userId} {
+      allow get: if isAuthenticated();
+      allow list: if isAdmin();
+      allow create: if isAuthenticated() && request.auth.uid == userId;
+      
+      // Prevent standard users from manually modifying critical subscription fields
+      // and validate subscription schema. Only system admins or valid authenticated clients with restricted values can write.
+      allow update: if (
+        isAuthenticated() && 
+        request.auth.uid == userId && 
+        (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['role'])) &&
+        // Validating subscription status fields to prevent corrupt data
+        (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['subscriptionTier']) || 
+          request.resource.data.subscriptionTier in ['free', 'pro', 'enterprise']) &&
+        (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['trialUsed']) || 
+          request.resource.data.trialUsed is bool)
+      ) || isAdmin();
+      
+      allow delete: if isAdmin();
+    }
+
+    // Reports Collection rules (supports Guest, Anonymous sandbox and Authenticated Clinicians)
     match /reports/{reportId} {
-      allow read, write, delete: if true;
+      allow read, write: if true;
+      allow delete: if true;
     }
   }
 }

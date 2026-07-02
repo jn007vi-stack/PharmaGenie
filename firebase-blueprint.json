@@ -5,6 +5,7 @@
       "description": "A saved PGx Clinical Report containing gene variant pharmacology analysis and therapeutic recommendations.",
       "type": "object",
       "properties": {
+        "patientId": { "type": "string", "description": "The customized or anonymous patient identifier (e.g., PAT-4912)." },
         "gene": { "type": "string", "description": "The genetic variant targeted (e.g., CYP2D6)." },
         "phenotype": { "type": "string", "description": "The patient's metabolizer phenotype (e.g., Poor Metabolizer)." },
         "drug": { "type": "string", "description": "The target medication specified." },
@@ -17,7 +18,7 @@
         "ageGroup": { "type": "string", "description": "The age demographic classification (Pediatric, Adult, Geriatric)." },
         "timestamp": { "type": "string", "format": "date-time", "description": "Chronological stamp when report was compiled." }
       },
-      "required": ["gene", "phenotype", "drug", "riskLevel", "guidelineStatus", "evidenceLevel", "explanation", "sessionId"]
+      "required": ["patientId", "gene", "phenotype", "drug", "riskLevel", "guidelineStatus", "evidenceLevel", "explanation", "sessionId"]
     }
   },
   "firestore": {

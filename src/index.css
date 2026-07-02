@@ -1,4 +1,36 @@
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,300..800;1,300..800&family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&family=JetBrains+Mono:ital,wght@0,100..800;1,100..800&display=swap');
 @import "tailwindcss";
+
+@theme {
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Plus Jakarta Sans", "Inter", sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+
+  /* Medical Soft Dark Slate Palette for outstanding eye-safety and clinical premium feel */
+  --color-slate-950: #0e1626; /* Deep dark teal-slate background, instead of high-contrast pitch black */
+  --color-slate-900: #162235; /* Softer, elevated container/panel background */
+  --color-slate-850: #1e2c44; /* Secondary card/section background */
+  --color-slate-800: #2a3b55; /* Soft borders and dividers */
+  --color-slate-700: #3f526e; /* Text secondary/muted */
+  --color-slate-600: #556a89; /* Extra readability text helper */
+  --color-slate-500: #7c91b0; /* Metadata / caption color with elevated dark-mode contrast */
+
+  /* Clinically calibrated Primary Teal Colors with elevated contrast ratios */
+  --color-teal-50: #f0fbf9;
+  --color-teal-100: #d1f4ee;
+  --color-teal-200: #a5ebd9;
+  --color-teal-300: #6de0c6;
+  --color-teal-400: #2ecfa8;  /* Vibrant readable green-teal for dark mode */
+  --color-teal-500: #14b8a6;
+  --color-teal-600: #0a8475;  /* Enhanced green-teal with proper light mode WCAG ratio */
+  --color-teal-700: #097266;
+  --color-teal-750: #086156;  /* High readability dark teal text */
+  --color-teal-800: #06554c;
+  --color-teal-900: #04433c;
+  --color-teal-950: #022b27;
+}
+
+@variant dark (&:where(.dark, .dark *));
 
 @media print {
   /* Hide all interactive UI and non-report sections */
@@ -56,6 +88,7 @@
     background: transparent !important;
     border: none !important;
     padding: 0 !important;
+    margin: 0 !important;
   }
 
   /* Force print backgrounds where appropriate or make them simple borders */
